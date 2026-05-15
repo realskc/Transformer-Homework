@@ -3,16 +3,9 @@
 """
 
 
-from torchtext.data.utils import get_tokenizer
-from torchtext.vocab import build_vocab_from_iterator
-from torchtext.datasets import multi30k, Multi30k
+from nmt_data_utils import Multi30k, build_vocab_from_iterator, get_tokenizer
 from typing import Iterable, List
 
-
-# We need to modify the URLs for the dataset since the links to the original dataset are broken
-# Refer to https://github.com/pytorch/text/issues/1756#issuecomment-1163664163 for more info
-multi30k.URL["train"] = "https://raw.githubusercontent.com/neychev/small_DL_repo/master/datasets/Multi30k/training.tar.gz"
-multi30k.URL["valid"] = "https://raw.githubusercontent.com/neychev/small_DL_repo/master/datasets/Multi30k/validation.tar.gz"
 
 SRC_LANGUAGE = 'de'
 TGT_LANGUAGE = 'en'
@@ -50,7 +43,7 @@ special_symbols = ['<unk>', '<pad>', '<bos>', '<eos>']
 for ln in [SRC_LANGUAGE, TGT_LANGUAGE]:
     # Training data Iterator
     train_iter = Multi30k(split='train', language_pair=(SRC_LANGUAGE, TGT_LANGUAGE))
-    # Create torchtext's Vocab object
+    # Create vocabulary object
     vocab_transform[ln] = build_vocab_from_iterator(yield_tokens(train_iter, ln),
                                                     min_freq=1,
                                                     specials=special_symbols,
@@ -176,24 +169,29 @@ class Seq2SeqTransformer(nn.Module):
 # source and target padding tokens. Below, let's define a function that will take care of both.
 #
 
-
 def generate_square_subsequent_mask(sz):
-    mask = (torch.triu(torch.ones((sz, sz), device=DEVICE)) == 1).transpose(0, 1)
-    mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-    return mask
+    return torch.triu(
+        torch.full((sz, sz), float("-inf"), device=DEVICE),
+        diagonal=1
+    )
 
+def generate_padding_mask(tokens):
+    return (tokens == PAD_IDX).transpose(0, 1).float().masked_fill(
+        (tokens == PAD_IDX).transpose(0, 1),
+        float("-inf")
+    )
 
 def create_mask(src, tgt):
     src_seq_len = src.shape[0]
     tgt_seq_len = tgt.shape[0]
 
+    src_mask = torch.zeros((src_seq_len, src_seq_len), device=DEVICE)
     tgt_mask = generate_square_subsequent_mask(tgt_seq_len)
-    src_mask = torch.zeros((src_seq_len, src_seq_len),device=DEVICE).type(torch.bool)
 
-    src_padding_mask = (src == PAD_IDX).transpose(0, 1)
-    tgt_padding_mask = (tgt == PAD_IDX).transpose(0, 1)
+    src_padding_mask = generate_padding_mask(src)
+    tgt_padding_mask = generate_padding_mask(tgt)
+
     return src_mask, tgt_mask, src_padding_mask, tgt_padding_mask
-
 
 ######################################################################
 # Let's now define the parameters of our model and instantiate the same. Below, we also
@@ -206,7 +204,7 @@ TGT_VOCAB_SIZE = len(vocab_transform[TGT_LANGUAGE])
 EMB_SIZE = 512
 NHEAD = 8
 FFN_HID_DIM = 512
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 NUM_ENCODER_LAYERS = 3
 NUM_DECODER_LAYERS = 3
 
@@ -361,8 +359,7 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
     ys = torch.ones(1, 1).fill_(start_symbol).type(torch.long).to(DEVICE)
     for i in range(max_len-1):
         memory = memory.to(DEVICE)
-        tgt_mask = (generate_square_subsequent_mask(ys.size(0))
-                    .type(torch.bool)).to(DEVICE)
+        tgt_mask = generate_square_subsequent_mask(ys.size(0)).to(DEVICE)
         out = model.decode(ys, memory, tgt_mask)
         out = out.transpose(0, 1)
         prob = model.generator(out[:, -1])
@@ -381,7 +378,7 @@ def translate(model: torch.nn.Module, src_sentence: str):
     model.eval()
     src = text_transform[SRC_LANGUAGE](src_sentence).view(-1, 1)
     num_tokens = src.shape[0]
-    src_mask = (torch.zeros(num_tokens, num_tokens)).type(torch.bool)
+    src_mask = torch.zeros((num_tokens, num_tokens), device=DEVICE)
     tgt_tokens = greedy_decode(
         model,  src, src_mask, max_len=num_tokens + 5, start_symbol=BOS_IDX).flatten()
     return " ".join(vocab_transform[TGT_LANGUAGE].lookup_tokens(list(tgt_tokens.cpu().numpy()))).replace("<bos>", "").replace("<eos>", "")

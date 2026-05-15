@@ -23,7 +23,6 @@
 ```
 torch               1.9.0
 torch-mlu           1.6.0-torch1.9 # 仅在MLU上运行时需要
-torchtext           0.10.1
 spacy               3.5.2
 spacy-legacy        3.0.12
 spacy-loggers       1.0.4

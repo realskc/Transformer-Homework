@@ -1,1 +1,4 @@
+__pycache__/
 *.tar.gz
+*.patch
+*.diff

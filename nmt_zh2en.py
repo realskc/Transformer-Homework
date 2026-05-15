@@ -2,8 +2,7 @@
 从0开始实现Trabsformer模型，用于中英文翻译
 """
 
-from torchtext.data.utils import get_tokenizer
-from torchtext.vocab import build_vocab_from_iterator
+from nmt_data_utils import build_vocab_from_iterator, get_tokenizer
 
 from dataset_zh2en import NEWSCOM # News Commentary dataset
 
@@ -51,7 +50,7 @@ for ln in [SRC_LANGUAGE, TGT_LANGUAGE]:
     vocab_transform[ln] = build_vocab_from_iterator(yield_tokens(train_iter, ln),
                                                     min_freq=1,
                                                     specials=special_symbols,
-                                                    special_first=True)
+                                                    special_first=True) 
 
 # 将UNK_IDX设置为默认索引，当查询的token不在词汇表中时，返回UNK_IDX
 # 如果不设置，当查询的token不在词汇表中时，会抛出RuntimeError
@@ -192,7 +191,7 @@ TGT_VOCAB_SIZE = len(vocab_transform[TGT_LANGUAGE]) # 目标语言词典大小
 EMB_SIZE = 512 # 嵌入维度
 NHEAD = 8 # 多头注意力的头数
 FFN_HID_DIM = 512 # 前馈神经网络的隐藏层维度
-BATCH_SIZE = 128
+BATCH_SIZE = 192
 NUM_ENCODER_LAYERS = 3
 NUM_DECODER_LAYERS = 3
 
@@ -376,7 +375,7 @@ for epoch in tqdm(range(1, NUM_EPOCHS+1)):
     end_time = timer()
     val_loss = evaluate(transformer)
     print((f"Epoch: {epoch}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}, "f"Epoch time = {(end_time - start_time):.3f}s"))
-    print(translate(transformer, "我 来自 北京 。")) #要求：更换不同的、一个列表的语句测试效果
+    print(translate(transformer, "我正在训练一个把中文翻译成英文的大语言模型。")) #要求：更换不同的、一个列表的语句测试效果
 
 
 
