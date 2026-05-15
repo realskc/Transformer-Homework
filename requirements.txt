@@ -1,0 +1,57 @@
+asc_opc_tool @ file:///root/selfgz96357246/compiler/lib64/asc_opc_tool-0.1.0-py3-none-any.whl#sha256=9873a1882932875dc651dac3294a738c7340c288070c4b89cf652ec93c1628b4
+auto_tune @ file:///root/selfgz96357246/compiler/lib64/auto_tune-0.1.0-py3-none-any.whl#sha256=276aad11a9fc0e06a1a77cbd82d2953ea987251758424d717d287708f4016b0d
+blis==0.7.11
+catalogue==2.0.10
+certifi==2026.4.22
+charset-normalizer==3.4.7
+click==8.3.3
+confection==0.1.5
+cymem==2.0.13
+dataflow @ file:///root/selfgz96357246/compiler/lib64/dataflow-0.0.1-py3-none-any.whl#sha256=e056c5beec9ce32ed2e5f66784af30b9e9ba251b08b41d7fb6554f2ddc0ef2d4
+de-core-news-sm @ file:///root/Transformer/de_core_news_sm-3.5.0-py3-none-any.whl#sha256=c9c06808be2f1e7f448b37f94391a50dab2e2f72f9b5c2e979be18aebac4a06c
+en-core-web-sm @ file:///root/Transformer/en_core_web_sm-3.5.0-py3-none-any.whl#sha256=0964370218b7e1672a30ac50d72cdc6b16f7c867496f1d60925691188f4d2510
+filelock==3.25.2
+fsspec==2026.2.0
+hccl @ file:///root/selfgz27133918/hccl/lib64/hccl-0.1.0-py3-none-any.whl#sha256=3f67a19c3283b10af454b5e52fd9a5cbcd424834d53570bc5800e77e99985ee0
+hccl_parser @ file:///usr/local/Ascend/ascend-toolkit/8.3.RC2/toolkit/tools/hccl_parser-0.1-py3-none-any.whl#sha256=e378185134d1d281536b36a9a8567092553d5c2bf1700ea53cc95b58ed5e646e
+idna==3.13
+Jinja2==3.1.6
+langcodes==3.5.1
+llm_datadist @ file:///root/selfgz96357246/compiler/lib64/llm_datadist-0.0.1-py3-none-any.whl#sha256=fb401ecb627245d9563c3bdde2da327bf1434ef5f033504b8422c92f397d18df
+llm_datadist_v1 @ file:///root/selfgz96357246/compiler/lib64/llm_datadist_v1-0.0.1-py3-none-any.whl#sha256=624abc40cf79eb1e9bb15cfff070ab8a0bf579afb473541282121af236d1ae18
+MarkupSafe==3.0.3
+mpmath==1.3.0
+msobjdump @ file:///usr/local/Ascend/ascend-toolkit/8.3.RC2/toolkit/tools/msobjdump-0.1.0-py3-none-any.whl#sha256=140a42aeda76a7a64947e1668c0b9e4f1fbd0bc851cd8aa3488908a3a16e1d05
+murmurhash==1.0.15
+networkx==3.4.2
+numpy==1.26.4
+op_compile_tool @ file:///root/selfgz96357246/compiler/lib64/op_compile_tool-0.1.0-py3-none-any.whl#sha256=1e6287fdabd1dd4d39d7f4e6e86cc26335d75dab59443c74b9653bfa5cbcc702
+op_gen @ file:///usr/local/Ascend/ascend-toolkit/8.3.RC2/toolkit/tools/op_gen-0.1-py3-none-any.whl#sha256=b3e21ccc57b7d7249c5f1421a37e081ae40851209542e9a515b77c44d2e6568d
+op_test_frame @ file:///usr/local/Ascend/ascend-toolkit/8.3.RC2/toolkit/tools/op_test_frame-0.1-py3-none-any.whl#sha256=71df6227bb65464d7b47c855f17ee054700d88a04756b79b7f94c940d1b9ad4c
+opc_tool @ file:///root/selfgz96357246/compiler/lib64/opc_tool-0.1.0-py3-none-any.whl#sha256=04ea0138dc6c0ef62341395ffadcb8f123819b21b520f0ce743b5a283743fbe0
+packaging==26.0
+pathlib_abc==0.5.2
+pathy==0.14.2
+preshed==3.0.13
+pydantic==1.10.26
+PyYAML==6.0.3
+requests==2.33.1
+schedule_search @ file:///root/selfgz96357246/compiler/lib64/schedule_search-0.1.0-py3-none-any.whl#sha256=a6d657cc64ce2f4db12b85f67d8fec4862e54bc1d02e1b0fb04166e073503a50
+show_kernel_debug_data @ file:///usr/local/Ascend/ascend-toolkit/8.3.RC2/toolkit/tools/show_kernel_debug_data-0.1.0-py3-none-any.whl#sha256=7d1384b717aec1ce3410d7550e8fb5a9fbfdacef84126d796f65a0a0cce3eea9
+smart-open==6.4.0
+spacy==3.5.4
+spacy-legacy==3.0.12
+spacy-loggers==1.0.5
+spacy-pkuseg==0.0.33
+srsly==2.5.3
+sympy==1.14.0
+te @ file:///root/selfgz96357246/compiler/lib64/te-0.4.0-py3-none-any.whl#sha256=99455bdd567c8a8be96d97839298bd5d7f9a22b77b781e71e18478ea84126174
+thinc==8.1.12
+torch==2.8.0+cpu
+torch_npu==2.8.0
+tqdm==4.67.3
+typer==0.9.4
+typing_extensions==4.15.0
+urllib3==2.7.0
+wasabi==1.1.3
+zh-core-web-sm @ file:///root/Transformer/zh_core_web_sm-3.5.0-py3-none-any.whl#sha256=50ec664cef64a095dd9ec7b9a1dba76814db10d72e4024249f9105ace8cb5ffa
