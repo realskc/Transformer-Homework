@@ -1,5 +1,5 @@
 """
-从0开始实现Trabsformer模型，用于中英文翻译
+从0开始实现Transformer模型，用于中英文翻译
 """
 
 from nmt_data_utils import build_vocab_from_iterator, get_tokenizer
@@ -8,6 +8,12 @@ from dataset_zh2en import NEWSCOM # News Commentary dataset
 
 from typing import Iterable, List
 from tqdm import tqdm
+
+TQDM_REFRESH_INTERVAL = 1.0
+TQDM_KWARGS = {
+    "dynamic_ncols": True,
+    "mininterval": TQDM_REFRESH_INTERVAL,
+}
 
 # 语言对
 SRC_LANGUAGE = 'zh'
@@ -35,7 +41,7 @@ token_transform[TGT_LANGUAGE] = get_tokenizer('spacy', language='en_core_web_sm'
 def yield_tokens(data_iter: Iterable, language: str) -> List[str]:
     language_index = {SRC_LANGUAGE: 0, TGT_LANGUAGE: 1}
 
-    for data_sample in tqdm(data_iter):
+    for data_sample in tqdm(data_iter, desc=f"Build {language} vocab", **TQDM_KWARGS):
         yield token_transform[language](data_sample[language_index[language]])
 
 # 定义特殊符号和索引
@@ -62,17 +68,42 @@ for ln in [SRC_LANGUAGE, TGT_LANGUAGE]:
 # ------------
 from torch import Tensor
 import torch
-import torch_npu
 import torch.nn as nn
 from transformer import Transformer # 从transformer.py中导入Transformer类
 import math
 
-if torch.npu.is_available():
-    DEVICE = torch.device("npu:0")
-elif torch.cuda.is_available():
-    DEVICE = torch.device("cuda:0")
-else:
-    DEVICE = torch.device("cpu")
+try:
+    import torch_npu  # noqa: F401
+except ImportError:
+    torch_npu = None
+
+
+def get_device():
+    npu = getattr(torch, "npu", None)
+    if npu is not None and npu.is_available():
+        return torch.device("npu:0")
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    return torch.device("cpu")
+
+
+def synchronize_device(device):
+    if device.type == "npu":
+        torch.npu.synchronize()
+    elif device.type == "cuda":
+        torch.cuda.synchronize()
+
+
+def get_batch_size(device):
+    if device.type == "npu": # 修改 batch size 改此处
+        return 192
+    if device.type == "cuda":
+        return 64
+    return 32
+
+
+DEVICE = get_device()
+print(f"Using device: {DEVICE}")
 
 # 进行位置编码，以引入单词顺序的概念
 class PositionalEncoding(nn.Module):
@@ -191,7 +222,8 @@ TGT_VOCAB_SIZE = len(vocab_transform[TGT_LANGUAGE]) # 目标语言词典大小
 EMB_SIZE = 512 # 嵌入维度
 NHEAD = 8 # 多头注意力的头数
 FFN_HID_DIM = 512 # 前馈神经网络的隐藏层维度
-BATCH_SIZE = 192
+BATCH_SIZE = get_batch_size(DEVICE)
+print(f"Using batch size: {BATCH_SIZE}")
 NUM_ENCODER_LAYERS = 3
 NUM_DECODER_LAYERS = 3
 
@@ -258,7 +290,6 @@ def collate_fn(batch):
 # 定义训练和评估循环
 
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 def train_epoch(model, optimizer):
     model.train()
     losses = 0
@@ -267,7 +298,7 @@ def train_epoch(model, optimizer):
 
     num_steps = len(train_dataloader)
     n = 0
-    for src, tgt in tqdm(train_dataloader):
+    for src, tgt in tqdm(train_dataloader, desc="Train", **TQDM_KWARGS):
         if not n < num_steps:
             break
         src = src.to(DEVICE)
@@ -302,7 +333,7 @@ def evaluate(model):
     
     num_steps = len(val_dataloader)
     n = 0
-    for src, tgt in tqdm(val_dataloader):
+    for src, tgt in tqdm(val_dataloader, desc="Valid", **TQDM_KWARGS):
         if not n < num_steps:
             break
         src = src.to(DEVICE)
@@ -363,14 +394,11 @@ def translate(model: torch.nn.Module, src_sentence: str):
 from timeit import default_timer as timer
 NUM_EPOCHS = 10
 
-for epoch in tqdm(range(1, NUM_EPOCHS+1)):
+for epoch in tqdm(range(1, NUM_EPOCHS+1), desc="Epoch", **TQDM_KWARGS):
     start_time = timer()
     train_loss = train_epoch(transformer, optimizer)
 
-    if DEVICE.type == "npu":
-        torch.npu.synchronize()
-    elif DEVICE.type == "cuda":
-        torch.cuda.synchronize()
+    synchronize_device(DEVICE)
 
     end_time = timer()
     val_loss = evaluate(transformer)

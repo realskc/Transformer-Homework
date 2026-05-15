@@ -73,17 +73,34 @@ for ln in [SRC_LANGUAGE, TGT_LANGUAGE]:
 
 from torch import Tensor
 import torch
-import torch_npu
 import torch.nn as nn
 from transformer import Transformer
 import math
 
-if torch.npu.is_available():
-    DEVICE = torch.device("npu:0")
-elif torch.cuda.is_available():
-    DEVICE = torch.device("cuda:0")
-else:
-    DEVICE = torch.device("cpu")
+try:
+    import torch_npu  # noqa: F401
+except ImportError:
+    torch_npu = None
+
+
+def get_device():
+    npu = getattr(torch, "npu", None)
+    if npu is not None and npu.is_available():
+        return torch.device("npu:0")
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    return torch.device("cpu")
+
+
+def synchronize_device(device):
+    if device.type == "npu":
+        torch.npu.synchronize()
+    elif device.type == "cuda":
+        torch.cuda.synchronize()
+
+
+DEVICE = get_device()
+print(f"Using device: {DEVICE}")
 
 # helper Module that adds positional encoding to the token embedding to introduce a notion of word order.
 class PositionalEncoding(nn.Module):
@@ -340,10 +357,7 @@ for epoch in range(1, NUM_EPOCHS+1):
     start_time = timer()
     train_loss = train_epoch(transformer, optimizer)
 
-    if DEVICE.type == "npu":
-        torch.npu.synchronize()
-    elif DEVICE.type == "cuda":
-        torch.cuda.synchronize()
+    synchronize_device(DEVICE)
     
     end_time = timer()
     val_loss = evaluate(transformer)
