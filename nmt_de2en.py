@@ -3,18 +3,21 @@
 """
 
 
-from nmt_data_utils import Multi30k, build_vocab_from_iterator, get_tokenizer
+from nmt_core.nmt_data_utils import Multi30k, build_vocab_from_iterator, get_tokenizer
 from typing import Iterable, List
 from pathlib import Path
-from nmt_runtime_utils import (
+from nmt_core.nmt_runtime_utils import (
     get_max_memory_mb,
     has_nearest_query,
     load_checkpoint_if_exists,
     parse_runtime_args,
     reset_peak_memory,
     run_nearest_queries,
+    run_nearest_repl,
+    run_translate_repl,
     save_checkpoint,
     save_training_log,
+    should_load_checkpoint,
     synchronize_device,
 )
 
@@ -96,7 +99,7 @@ for ln in [SRC_LANGUAGE, TGT_LANGUAGE]:
 from torch import Tensor
 import torch
 import torch.nn as nn
-from transformer import Transformer
+from nmt_core.transformer import Transformer
 import math
 
 try:
@@ -315,6 +318,7 @@ def train_epoch(model, optimizer):
     n = 0
     for src, tgt in train_dataloader:
         src = src.to(DEVICE)
+        print(src.shape)
         tgt = tgt.to(DEVICE)
 
         tgt_input = tgt[:-1, :]
@@ -370,7 +374,7 @@ NUM_EPOCHS = 18
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 loaded_checkpoint = False
-if has_nearest_query(ARGS, [SRC_LANGUAGE, TGT_LANGUAGE]):
+if should_load_checkpoint(ARGS, [SRC_LANGUAGE, TGT_LANGUAGE]):
     loaded_checkpoint = load_checkpoint_if_exists(transformer, "de2en", DEVICE, PROJECT_ROOT)
 
 if not loaded_checkpoint:
@@ -423,14 +427,46 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
     return ys
 
 
+def sample_decode(model, src, src_mask, max_len, start_symbol, temperature):
+    if temperature <= 0:
+        raise ValueError("temperature must be positive for sampling")
+
+    src = src.to(DEVICE)
+    src_mask = src_mask.to(DEVICE)
+
+    memory = model.encode(src, src_mask)
+    ys = torch.ones(1, 1).fill_(start_symbol).type(torch.long).to(DEVICE)
+    for i in range(max_len-1):
+        memory = memory.to(DEVICE)
+        tgt_mask = generate_square_subsequent_mask(ys.size(0)).to(DEVICE)
+        out = model.decode(ys, memory, tgt_mask)
+        out = out.transpose(0, 1)
+        logits = model.generator(out[:, -1]) / temperature
+        probs = torch.softmax(logits, dim=1)
+        next_word = torch.multinomial(probs, num_samples=1).item()
+
+        ys = torch.cat([
+            ys,
+            torch.ones(1, 1).type_as(src.data).fill_(next_word)
+        ], dim=0)
+        if next_word == EOS_IDX:
+            break
+    return ys
+
+
 # actual function to translate input sentence into target language
-def translate(model: torch.nn.Module, src_sentence: str):
+def translate(model: torch.nn.Module, src_sentence: str, temperature: float = 0.0):
     model.eval()
     src = text_transform[SRC_LANGUAGE](src_sentence).view(-1, 1)
     num_tokens = src.shape[0]
     src_mask = torch.zeros((num_tokens, num_tokens), device=DEVICE)
-    tgt_tokens = greedy_decode(
-        model,  src, src_mask, max_len=num_tokens + 5, start_symbol=BOS_IDX).flatten()
+    if temperature == 0:
+        tgt_tokens = greedy_decode(
+            model, src, src_mask, max_len=num_tokens + 5, start_symbol=BOS_IDX).flatten()
+    else:
+        tgt_tokens = sample_decode(
+            model, src, src_mask, max_len=num_tokens + 5,
+            start_symbol=BOS_IDX, temperature=temperature).flatten()
     return " ".join(vocab_transform[TGT_LANGUAGE].lookup_tokens(list(tgt_tokens.cpu().numpy()))).replace("<bos>", "").replace("<eos>", "")
 
 
@@ -448,6 +484,21 @@ run_nearest_queries(
     SRC_LANGUAGE,
     TGT_LANGUAGE,
 )
+
+if ARGS.nearest:
+    run_nearest_repl(
+        ARGS,
+        transformer,
+        [SRC_LANGUAGE, TGT_LANGUAGE],
+        vocab_transform,
+        token_transform,
+        SRC_LANGUAGE,
+        TGT_LANGUAGE,
+    )
+
+if ARGS.translate:
+    run_translate_repl(lambda sentence, temperature=0.0: translate(
+        transformer, sentence, temperature=temperature), ARGS.temperature)
 
 
 ######################################################################

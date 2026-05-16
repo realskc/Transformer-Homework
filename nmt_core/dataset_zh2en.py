@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Sequence, Tuple, Union
 
-from nmt_data_utils import ParallelTextIterableDataset
+from .nmt_data_utils import ParallelTextIterableDataset
 
 # 各个数据集的行数，调整这里来实验不同的数据集大小对模型翻译效果的影响
 NUM_LINES = {

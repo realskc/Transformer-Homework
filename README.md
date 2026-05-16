@@ -13,15 +13,14 @@
 ├── .data/                         # 数据集目录
 │   ├── Multi30k/                  # 德文-英文数据集
 │   └── NEWS-Commentary/           # 中文-英文数据集
-├── attention.py                   # 多头注意力模块
-├── transformer.py                 # Transformer Encoder/Decoder 实现
-├── nmt_data_utils.py              # 数据读取、词表、分词等通用工具
-├── dataset_zh2en.py               # 中文-英文数据集封装
 ├── nmt_zh2en.py                   # 中文到英文翻译训练脚本
 ├── nmt_de2en.py                   # 德文到英文翻译训练脚本
-├── zh_core_web_sm-3.5.0-*.whl     # spaCy 中文分词模型
-├── en_core_web_sm-3.5.0-*.whl     # spaCy 英文分词模型
-└── de_core_news_sm-3.5.0-*.whl    # spaCy 德文分词模型
+├── nmt_core/                      # Transformer、Attention、数据集和运行辅助模块
+├── tools/                         # 分词等命令行工具
+└── wheels/                        # 本地 spaCy 分词模型 wheel 文件
+    ├── zh_core_web_sm-3.5.0-*.whl
+    ├── en_core_web_sm-3.5.0-*.whl
+    └── de_core_news_sm-3.5.0-*.whl
 ```
 
 ## 项目依赖
@@ -67,9 +66,9 @@ pip install torch==2.8.0+cpu torch_npu==2.8.0
 在项目根目录安装本地 spaCy 分词模型：
 
 ```bash
-pip install ./zh_core_web_sm-3.5.0-py3-none-any.whl
-pip install ./en_core_web_sm-3.5.0-py3-none-any.whl
-pip install ./de_core_news_sm-3.5.0-py3-none-any.whl
+pip install ./wheels/zh_core_web_sm-3.5.0-py3-none-any.whl
+pip install ./wheels/en_core_web_sm-3.5.0-py3-none-any.whl
+pip install ./wheels/de_core_news_sm-3.5.0-py3-none-any.whl
 ```
 
 ## 运行训练

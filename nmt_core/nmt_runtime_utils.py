@@ -21,11 +21,47 @@ def parse_runtime_args(description, nearest_languages):
         default=5,
         help="Number of nearest tokens to show. Default: 5.",
     )
+    parser.add_argument(
+        "--nearest",
+        action="store_true",
+        help="Enter interactive nearest-neighbor query mode after loading a checkpoint or training.",
+    )
+    parser.add_argument(
+        "--translate",
+        action="store_true",
+        help="Enter interactive translation mode after loading a checkpoint or training.",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="Sampling temperature for translation. 0 uses greedy decoding. Default: 0.",
+    )
     return parser.parse_args()
 
 
 def has_nearest_query(args, languages):
-    return any(getattr(args, f"nearest_{language}", None) is not None for language in languages)
+    return args.nearest or any(
+        getattr(args, f"nearest_{language}", None) is not None
+        for language in languages
+    )
+
+
+def should_load_checkpoint(args, languages):
+    return args.translate or has_nearest_query(args, languages)
+
+
+def run_translate_repl(translate_fn, temperature):
+    mode = "greedy" if temperature == 0 else f"temperature={temperature}"
+    print(f"Interactive translation mode ({mode}). Enter an empty line to quit.")
+    while True:
+        try:
+            sentence = input("> ").strip()
+        except EOFError:
+            break
+        if not sentence:
+            break
+        print(translate_fn(sentence, temperature=temperature))
 
 
 def synchronize_device(device):
@@ -196,3 +232,49 @@ def run_nearest_queries(
                 src_language,
                 tgt_language,
             )
+
+
+def run_nearest_repl(
+    args,
+    model,
+    languages,
+    vocab_transform,
+    token_transform,
+    src_language,
+    tgt_language,
+):
+    language_list = ", ".join(languages)
+    print(f"Interactive nearest-neighbor mode. Languages: {language_list}.")
+    print("Enter '<language> <token>' to query, for example: 'en China'.")
+    print("Enter an empty line to quit.")
+    while True:
+        try:
+            line = input("> ").strip()
+        except EOFError:
+            break
+        if not line:
+            break
+
+        parts = line.split(maxsplit=1)
+        if len(parts) != 2:
+            print(f"Please enter '<language> <token>'. Available languages: {language_list}.")
+            continue
+
+        language, word = parts
+        if language not in languages:
+            print(f"Unknown language {language!r}. Available languages: {language_list}.")
+            continue
+
+        try:
+            print_nearest_tokens(
+                model,
+                language,
+                word,
+                args.nearest_k,
+                vocab_transform,
+                token_transform,
+                src_language,
+                tgt_language,
+            )
+        except ValueError as exc:
+            print(exc)

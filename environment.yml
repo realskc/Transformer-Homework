@@ -1,6 +1,0 @@
-name: transformer_npu
-channels:
-  - defaults
-dependencies:
-  - python=3.10
-prefix: /root/miniconda3/envs/transformer_npu

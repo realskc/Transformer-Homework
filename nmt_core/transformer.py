@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 from torch.nn import functional as F
 from torch.nn import Module
-from attention import MultiheadAttention
+from .attention import MultiheadAttention
 from torch.nn import ModuleList
 from torch.nn.init import xavier_uniform_
 from torch.nn import Dropout
