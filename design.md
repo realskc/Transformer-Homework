@@ -6,7 +6,7 @@ zh2en是主要的部分，因为它可以看效果。如果一个实验要训练
 
 整两个更高质量的数据集（非必要）
 
-训练脚本自动导出训练情况（epoch, train loss, val loss, max GPU memory(不确定能否实现), epoch time）的 csv
+训练脚本自动导出训练情况（epoch, train loss, val loss, max NPU/GPU memory(不确定能否实现), epoch time）的 csv
 
 训完后保存 checkpoint
 
@@ -25,7 +25,7 @@ zh2en是主要的部分，因为它可以看效果。如果一个实验要训练
 
 ### 理解数据流
 
-1. 填写 `src, tgt, src_emb,  tgt_emb， logits` 的大小和含义
+1. 填写 `src, tgt, src_emb,  tgt_emb， logits` 的大小
 2. 填写 多头注意力的头数和每个的维数，以及头是怎么合并的
 3. 填写 前馈层的结构
 

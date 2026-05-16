@@ -5,10 +5,32 @@
 
 from nmt_data_utils import Multi30k, build_vocab_from_iterator, get_tokenizer
 from typing import Iterable, List
+from pathlib import Path
+from nmt_runtime_utils import (
+    get_max_memory_mb,
+    has_nearest_query,
+    load_checkpoint_if_exists,
+    parse_runtime_args,
+    reset_peak_memory,
+    run_nearest_queries,
+    save_checkpoint,
+    save_training_log,
+    synchronize_device,
+)
 
 
 SRC_LANGUAGE = 'de'
 TGT_LANGUAGE = 'en'
+
+
+def parse_args():
+    return parse_runtime_args(
+        "Train a de-en Transformer NMT model.",
+        [(SRC_LANGUAGE, "German source"), (TGT_LANGUAGE, "English target")],
+    )
+
+
+ARGS = parse_args()
 
 # Place-holders
 token_transform = {}
@@ -90,13 +112,6 @@ def get_device():
     if torch.cuda.is_available():
         return torch.device("cuda:0")
     return torch.device("cpu")
-
-
-def synchronize_device(device):
-    if device.type == "npu":
-        torch.npu.synchronize()
-    elif device.type == "cuda":
-        torch.cuda.synchronize()
 
 
 DEVICE = get_device()
@@ -353,16 +368,37 @@ def evaluate(model):
 from timeit import default_timer as timer
 NUM_EPOCHS = 18
 
-for epoch in range(1, NUM_EPOCHS+1):
-    start_time = timer()
-    train_loss = train_epoch(transformer, optimizer)
+PROJECT_ROOT = Path(__file__).resolve().parent
+loaded_checkpoint = False
+if has_nearest_query(ARGS, [SRC_LANGUAGE, TGT_LANGUAGE]):
+    loaded_checkpoint = load_checkpoint_if_exists(transformer, "de2en", DEVICE, PROJECT_ROOT)
 
-    synchronize_device(DEVICE)
-    
-    end_time = timer()
-    val_loss = evaluate(transformer)
-    print((f"Epoch: {epoch}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}, "f"Epoch time = {(end_time - start_time):.3f}s"))
+if not loaded_checkpoint:
+    training_log = []
+    for epoch in range(1, NUM_EPOCHS+1):
+        reset_peak_memory(DEVICE)
+        start_time = timer()
+        train_loss = train_epoch(transformer, optimizer)
+        val_loss = evaluate(transformer)
 
+        synchronize_device(DEVICE)
+        
+        end_time = timer()
+        epoch_time = end_time - start_time
+        max_memory_mb = get_max_memory_mb(DEVICE)
+        training_log.append({
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+            "max_memory_mb": "" if max_memory_mb is None else max_memory_mb,
+            "epoch_time": epoch_time,
+        })
+        memory_text = "N/A" if max_memory_mb is None else f"{max_memory_mb:.1f} MB"
+        print((f"Epoch: {epoch}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}, "
+               f"Max memory: {memory_text}, Epoch time = {epoch_time:.3f}s"))
+
+    save_training_log(training_log, "de2en", PROJECT_ROOT)
+    save_checkpoint(transformer, "de2en", PROJECT_ROOT)
 
 # function to generate output sequence using greedy algorithm
 def greedy_decode(model, src, src_mask, max_len, start_symbol):
@@ -402,6 +438,16 @@ def translate(model: torch.nn.Module, src_sentence: str):
 #
 
 print(translate(transformer, "Eine Gruppe von Menschen steht vor einem Iglu ."))
+
+run_nearest_queries(
+    ARGS,
+    transformer,
+    [SRC_LANGUAGE, TGT_LANGUAGE],
+    vocab_transform,
+    token_transform,
+    SRC_LANGUAGE,
+    TGT_LANGUAGE,
+)
 
 
 ######################################################################

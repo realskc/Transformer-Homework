@@ -2,3 +2,6 @@ __pycache__/
 *.tar.gz
 *.patch
 *.diff
+*.log
+log/
+checkpoints/

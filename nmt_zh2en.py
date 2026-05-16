@@ -7,7 +7,20 @@ from nmt_data_utils import build_vocab_from_iterator, get_tokenizer
 from dataset_zh2en import NEWSCOM # News Commentary dataset
 
 from typing import Iterable, List
+from pathlib import Path
+import sys
 from tqdm import tqdm
+from nmt_runtime_utils import (
+    get_max_memory_mb,
+    has_nearest_query,
+    load_checkpoint_if_exists,
+    parse_runtime_args,
+    reset_peak_memory,
+    run_nearest_queries,
+    save_checkpoint,
+    save_training_log,
+    synchronize_device,
+)
 
 TQDM_REFRESH_INTERVAL = 1.0
 TQDM_KWARGS = {
@@ -18,6 +31,16 @@ TQDM_KWARGS = {
 # 语言对
 SRC_LANGUAGE = 'zh'
 TGT_LANGUAGE = 'en'
+
+
+def parse_args():
+    return parse_runtime_args(
+        "Train a zh-en Transformer NMT model.",
+        [(SRC_LANGUAGE, "Chinese source"), (TGT_LANGUAGE, "English target")],
+    )
+
+
+ARGS = parse_args()
 
 # Place-holders
 token_transform = {}
@@ -87,19 +110,18 @@ def get_device():
     return torch.device("cpu")
 
 
-def synchronize_device(device):
-    if device.type == "npu":
-        torch.npu.synchronize()
-    elif device.type == "cuda":
-        torch.cuda.synchronize()
-
-
 def get_batch_size(device):
     if device.type == "npu": # 修改 batch size 改此处
         return 192
     if device.type == "cuda":
-        return 64
+        return 8
     return 32
+
+
+def get_num_workers():
+    if sys.platform == "win32":
+        return 0
+    return 16
 
 
 DEVICE = get_device()
@@ -224,6 +246,8 @@ NHEAD = 8 # 多头注意力的头数
 FFN_HID_DIM = 512 # 前馈神经网络的隐藏层维度
 BATCH_SIZE = get_batch_size(DEVICE)
 print(f"Using batch size: {BATCH_SIZE}")
+NUM_WORKERS = get_num_workers()
+print(f"Using dataloader workers: {NUM_WORKERS}")
 NUM_ENCODER_LAYERS = 3
 NUM_DECODER_LAYERS = 3
 
@@ -294,7 +318,7 @@ def train_epoch(model, optimizer):
     model.train()
     losses = 0
     train_iter = NEWSCOM(split='train', language_pair=(SRC_LANGUAGE, TGT_LANGUAGE))
-    train_dataloader = DataLoader(train_iter, batch_size=BATCH_SIZE, collate_fn=collate_fn, num_workers=16)
+    train_dataloader = DataLoader(train_iter, batch_size=BATCH_SIZE, collate_fn=collate_fn, num_workers=NUM_WORKERS)
 
     num_steps = len(train_dataloader)
     n = 0
@@ -329,7 +353,7 @@ def evaluate(model):
     losses = 0
 
     val_iter = NEWSCOM(split='valid', language_pair=(SRC_LANGUAGE, TGT_LANGUAGE))
-    val_dataloader = DataLoader(val_iter, batch_size=BATCH_SIZE, collate_fn=collate_fn, num_workers=16)
+    val_dataloader = DataLoader(val_iter, batch_size=BATCH_SIZE, collate_fn=collate_fn, num_workers=NUM_WORKERS)
     
     num_steps = len(val_dataloader)
     n = 0
@@ -394,16 +418,48 @@ def translate(model: torch.nn.Module, src_sentence: str):
 from timeit import default_timer as timer
 NUM_EPOCHS = 10
 
-for epoch in tqdm(range(1, NUM_EPOCHS+1), desc="Epoch", **TQDM_KWARGS):
-    start_time = timer()
-    train_loss = train_epoch(transformer, optimizer)
+PROJECT_ROOT = Path(__file__).resolve().parent
+loaded_checkpoint = False
+if has_nearest_query(ARGS, [SRC_LANGUAGE, TGT_LANGUAGE]):
+    loaded_checkpoint = load_checkpoint_if_exists(transformer, "zh2en", DEVICE, PROJECT_ROOT)
 
-    synchronize_device(DEVICE)
+if not loaded_checkpoint:
+    training_log = []
+    for epoch in tqdm(range(1, NUM_EPOCHS+1), desc="Epoch", **TQDM_KWARGS):
+        reset_peak_memory(DEVICE)
+        start_time = timer()
+        train_loss = train_epoch(transformer, optimizer)
+        val_loss = evaluate(transformer)
 
-    end_time = timer()
-    val_loss = evaluate(transformer)
-    print((f"Epoch: {epoch}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}, "f"Epoch time = {(end_time - start_time):.3f}s"))
-    print(translate(transformer, "我正在训练一个把中文翻译成英文的大语言模型。")) #要求：更换不同的、一个列表的语句测试效果
+        synchronize_device(DEVICE)
+
+        end_time = timer()
+        epoch_time = end_time - start_time
+        max_memory_mb = get_max_memory_mb(DEVICE)
+        training_log.append({
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+            "max_memory_mb": "" if max_memory_mb is None else max_memory_mb,
+            "epoch_time": epoch_time,
+        })
+        memory_text = "N/A" if max_memory_mb is None else f"{max_memory_mb:.1f} MB"
+        print((f"Epoch: {epoch}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}, "
+               f"Max memory: {memory_text}, Epoch time = {epoch_time:.3f}s"))
+        print(translate(transformer, "我正在训练一个把中文翻译成英文的大语言模型。")) #要求：更换不同的、一个列表的语句测试效果
+
+    save_training_log(training_log, "zh2en", PROJECT_ROOT)
+    save_checkpoint(transformer, "zh2en", PROJECT_ROOT)
+
+run_nearest_queries(
+    ARGS,
+    transformer,
+    [SRC_LANGUAGE, TGT_LANGUAGE],
+    vocab_transform,
+    token_transform,
+    SRC_LANGUAGE,
+    TGT_LANGUAGE,
+)
 
 
 
