@@ -16,7 +16,6 @@ from nmt_core.nmt_runtime_utils import (
     load_checkpoint_if_exists,
     parse_runtime_args,
     reset_peak_memory,
-    run_nearest_queries,
     run_nearest_repl,
     run_translate_repl,
     save_checkpoint,
@@ -253,6 +252,13 @@ NUM_WORKERS = get_num_workers()
 print(f"Using dataloader workers: {NUM_WORKERS}")
 NUM_ENCODER_LAYERS = 3
 NUM_DECODER_LAYERS = 3
+MODEL_CONFIG = {
+    "EMB_SIZE": EMB_SIZE,
+    "NHEAD": NHEAD,
+    "FFN_HID_DIM": FFN_HID_DIM,
+    "NUM_ENCODER_LAYERS": NUM_ENCODER_LAYERS,
+    "NUM_DECODER_LAYERS": NUM_DECODER_LAYERS,
+}
 
 transformer = Seq2SeqTransformer(NUM_ENCODER_LAYERS, NUM_DECODER_LAYERS, EMB_SIZE,
                                  NHEAD, SRC_VOCAB_SIZE, TGT_VOCAB_SIZE, FFN_HID_DIM)
@@ -456,7 +462,7 @@ NUM_EPOCHS = 10
 PROJECT_ROOT = Path(__file__).resolve().parent
 loaded_checkpoint = False
 if should_load_checkpoint(ARGS, [SRC_LANGUAGE, TGT_LANGUAGE]):
-    loaded_checkpoint = load_checkpoint_if_exists(transformer, "zh2en", DEVICE, PROJECT_ROOT)
+    loaded_checkpoint = load_checkpoint_if_exists(transformer, "zh2en", DEVICE, MODEL_CONFIG, PROJECT_ROOT)
 
 if not loaded_checkpoint:
     training_log = []
@@ -484,17 +490,7 @@ if not loaded_checkpoint:
         print(translate(transformer, "我正在训练一个从中文到英文的机器翻译模型。")) #要求：更换不同的、一个列表的语句测试效果
 
     save_training_log(training_log, "zh2en", PROJECT_ROOT)
-    save_checkpoint(transformer, "zh2en", PROJECT_ROOT)
-
-run_nearest_queries(
-    ARGS,
-    transformer,
-    [SRC_LANGUAGE, TGT_LANGUAGE],
-    vocab_transform,
-    token_transform,
-    SRC_LANGUAGE,
-    TGT_LANGUAGE,
-)
+    save_checkpoint(transformer, "zh2en", MODEL_CONFIG, PROJECT_ROOT)
 
 if ARGS.nearest:
     run_nearest_repl(

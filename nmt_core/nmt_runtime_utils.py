@@ -8,13 +8,6 @@ import torch
 
 def parse_runtime_args(description, nearest_languages):
     parser = argparse.ArgumentParser(description=description)
-    for language, label in nearest_languages:
-        parser.add_argument(
-            f"--nearest-{language}",
-            type=str,
-            default=None,
-            help=f"After training, find nearest {label} embeddings for this token.",
-        )
     parser.add_argument(
         "--nearest-k",
         type=int,
@@ -41,10 +34,7 @@ def parse_runtime_args(description, nearest_languages):
 
 
 def has_nearest_query(args, languages):
-    return args.nearest or any(
-        getattr(args, f"nearest_{language}", None) is not None
-        for language in languages
-    )
+    return args.nearest
 
 
 def should_load_checkpoint(args, languages):
@@ -116,20 +106,42 @@ def checkpoint_path(task_name, base_dir=None):
     return Path(base_dir) / "checkpoints" / f"{task_name}.pt"
 
 
-def save_checkpoint(model, task_name, base_dir=None):
+def save_checkpoint(model, task_name, model_config, base_dir=None):
     path = checkpoint_path(task_name, base_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(model.state_dict(), path)
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "model_config": dict(model_config),
+    }, path)
     print(f"Checkpoint saved to {path}")
     return path
 
 
-def load_checkpoint_if_exists(model, task_name, device, base_dir=None):
+def load_checkpoint_if_exists(model, task_name, device, model_config, base_dir=None):
     path = checkpoint_path(task_name, base_dir)
     if not path.is_file():
         return False
-    state_dict = torch.load(path, map_location=device)
-    model.load_state_dict(state_dict)
+    checkpoint = torch.load(path, map_location=device)
+    if not isinstance(checkpoint, dict) or "model_config" not in checkpoint:
+        raise RuntimeError(
+            f"Checkpoint {path} does not contain model_config. "
+            "Please retrain the model to create a new checkpoint."
+        )
+
+    saved_config = checkpoint["model_config"]
+    mismatches = {
+        key: (saved_config.get(key), value)
+        for key, value in model_config.items()
+        if saved_config.get(key) != value
+    }
+    if mismatches:
+        details = ", ".join(
+            f"{key}: checkpoint={saved}, current={current}"
+            for key, (saved, current) in mismatches.items()
+        )
+        raise RuntimeError(f"Checkpoint hyperparameters do not match current model: {details}")
+
+    model.load_state_dict(checkpoint["model_state_dict"])
     print(f"Checkpoint loaded from {path}")
     return True
 
@@ -208,30 +220,6 @@ def print_nearest_tokens(
     token_width = max(len(nearest_token) for nearest_token, _ in results)
     for nearest_token, score in results:
         print(f"  {nearest_token:<{token_width}}  {score:>7.4f}")
-
-
-def run_nearest_queries(
-    args,
-    model,
-    languages,
-    vocab_transform,
-    token_transform,
-    src_language,
-    tgt_language,
-):
-    for language in languages:
-        word = getattr(args, f"nearest_{language}", None)
-        if word is not None:
-            print_nearest_tokens(
-                model,
-                language,
-                word,
-                args.nearest_k,
-                vocab_transform,
-                token_transform,
-                src_language,
-                tgt_language,
-            )
 
 
 def run_nearest_repl(

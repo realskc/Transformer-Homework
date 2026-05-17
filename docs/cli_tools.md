@@ -77,44 +77,11 @@ Enter an empty line to quit.
 >
 ```
 
-### de2en
-
-查询德文 source embedding：
-
-```bash
-python nmt_de2en.py --nearest-de Hund
-```
-
-查询英文 target embedding：
-
-```bash
-python nmt_de2en.py --nearest-en dog
-```
-
 指定返回数量，默认是 5：
 
 ```bash
-python nmt_de2en.py --nearest-en dog --nearest-k 10
-```
-
-### zh2en
-
-查询中文 source embedding：
-
-```bash
-python nmt_zh2en.py --nearest-zh 中国
-```
-
-查询英文 target embedding：
-
-```bash
-python nmt_zh2en.py --nearest-en China
-```
-
-指定返回数量：
-
-```bash
-python nmt_zh2en.py --nearest-en China --nearest-k 10
+python nmt_zh2en.py --nearest --nearest-k 10
+python nmt_de2en.py --nearest --nearest-k 10
 ```
 
 最近邻使用 cosine similarity 计算，并会排除 `<unk>`、`<pad>`、`<bos>`、`<eos>` 和查询词本身。
@@ -166,9 +133,6 @@ python nmt_zh2en.py --translate --temperature 1.5
 | --- | --- | --- |
 | `--lang {zh,en,de}` | `tools/tokenize_cli.py` | 指定分词语言 |
 | `--sep SEP` | `tools/tokenize_cli.py` | 指定 token 输出分隔符 |
-| `--nearest-de WORD` | `nmt_de2en.py` | 查询德文 source embedding 中离 `WORD` 最近的 token |
-| `--nearest-zh WORD` | `nmt_zh2en.py` | 查询中文 source embedding 中离 `WORD` 最近的 token |
-| `--nearest-en WORD` | 两个训练脚本 | 查询英文 target embedding 中离 `WORD` 最近的 token |
 | `--nearest-k K` | 两个训练脚本 | 返回最近的 `K` 个 token，默认值为 5 |
 | `--nearest` | 两个训练脚本 | 进入交互式最近邻查询模式 |
 | `--translate` | 两个训练脚本 | 进入交互式翻译模式 |
